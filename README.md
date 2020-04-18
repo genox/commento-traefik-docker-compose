@@ -12,7 +12,7 @@ Hints:
 - If you want to run the containers locally, you might want to change ports, too.
 
 Based on:
-https://github.com/acheremisov/ghost-commento-traefik-in-docker
-https://docs.traefik.io/v2.0/user-guides/docker-compose/acme-http/
-https://docs.commento.io/installation/self-hosting/on-your-server/docker.html
+- https://github.com/acheremisov/ghost-commento-traefik-in-docker
+- https://docs.traefik.io/v2.0/user-guides/docker-compose/acme-http/
+- https://docs.commento.io/installation/self-hosting/on-your-server/docker.html
 
