@@ -1,0 +1,84 @@
+version: "3"
+
+services:
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: unless-stopped
+    logging:
+      options:
+        max-size: 50m
+    ports:
+      - 80:80
+      - 443:443
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.http-redirect-to-https.rule=HostRegexp(`{any:.+}`)"
+      - "traefik.http.routers.http-redirect-to-https.entrypoints=http"
+      - "traefik.http.routers.http-redirect-to-https.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+      - "certificatesresolvers.lencrypt.acme.email={EMAIL_ADDRESS}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /{COMMENTO_VOLUME}/traefik/traefik.toml:/etc/traefik/traefik.toml:ro
+      - /{COMMENTO_VOLUME}/traefik/acme.json:/acme.json
+      - /{COMMENTO_VOLUME}/traefik/cert:/cert:ro
+      - /{COMMENTO_VOLUME}/traefik/dynamic/:/etc/traefik/dynamic/:ro
+    networks:
+      - traefik-public
+
+  server:
+    image: registry.gitlab.com/commento/commento
+    container_name: commento
+    hostname: commento
+    restart: unless-stopped
+    logging:
+      options:
+        max-size: 50m
+    environment:
+      COMMENTO_ORIGIN: https://{COMMENTO_ORIGIN}
+      COMMENTO_PORT: 8080
+      COMMENTO_POSTGRES: postgres://postgres:postgres@db:5432/commento?sslmode=disable
+      COMMENTO_FORBID_NEW_OWNERS: "true"
+      COMMENTO_SMTP_HOST: "{COMMENTO_SMTP_HOST}"
+      COMMENTO_SMTP_PORT: 587
+      COMMENTO_SMTP_USERNAME: "{COMMENTO_SMTP_USERNAME}"
+      COMMENTO_SMTP_PASSWORD: "{COMMENTO_SMTP_PASSWORD}"
+      COMMENTO_SMTP_FROM_ADDRESS: "{COMMENTO_SMTP_FROM_ADDRESS}"
+      COMMENTO_AKISMET_KEY: "{COMMENTO_AKISMET_KEY}"
+    depends_on:
+      - db
+      - traefik
+    networks:
+      - traefik-public
+      - internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.commento.entrypoints=https"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.commento.tls.certresolver=lencrypt"
+      - "traefik.http.routers.commento.tls=true"
+      - "traefik.http.routers.commento.rule=Host(`{COMMENTO_ORIGIN}`)"
+      - "traefik.http.middlewares.commento.compress=true"
+
+  db:
+    image: postgres
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: commento
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    networks:
+      - internal
+    volumes:
+      - /{COMMENTO_VOLUME}/postgres:/var/lib/postgresql/data
+    labels:
+      - "traefik.enable=false"
+
+networks:
+  traefik-public:
+    external: true
+  internal:
+    external: false
